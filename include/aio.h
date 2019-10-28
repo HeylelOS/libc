@@ -16,8 +16,15 @@
 #include <_definitions/sigevent.h>
 #include <_definitions/sigval.h>
 
-/* Definitions */
-#include <_definitions/aiocb.h>
+struct aiocb {
+	int             aio_fildes;     /* File descriptor. */
+	off_t           aio_offset;     /* File offset. */
+	volatile void  *aio_buf;        /* Location of buffer. */
+	size_t          aio_nbytes;     /* Length of transfer. */
+	int             aio_reqprio;    /* Request priority offset. */
+	struct sigevent aio_sigevent;   /* Signal number and value. */
+	int             aio_lio_opcode; /* Operation to be performed. */
+};
 
 #define AIO_ALLDONE
 #define AIO_CANCELED
@@ -37,7 +44,7 @@ int     aio_suspend(const struct aiocb *const [], int, const struct timespec *);
 int     aio_write(struct aiocb *);
 int     lio_listio(int, struct aiocb *restrict const [restrict], int, struct sigevent *restrict);
 
-#if defined(_POSIX_EXTENSION_FSC) || defined(_POSIX_EXTENSION_SIO)
+#if defined(_POSIX_EXTENSION_FSC) && defined(_POSIX_EXTENSION_SIO)
 int aio_fsync(int, struct aiocb *);
 #endif
 

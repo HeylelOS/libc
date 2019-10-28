@@ -18,7 +18,7 @@ int isxdigit(int);
 int tolower(int);
 int toupper(int);
 
-#if defined(_POSIX_EXTENSION_OB) || defined(_POSIX_EXTENSION_XSI)
+#if defined(_POSIX_EXTENSION_OB) && defined(_POSIX_EXTENSION_XSI)
 int isascii(int);
 int toascii(int);
 
