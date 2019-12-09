@@ -3,9 +3,18 @@
 
 /* dirent.h - format of directory entries */
 
-/* Definitions */
-#include <_definitions/DIR.h>
-#include <_definitions/dirent.h>
+#ifdef _POSIX_EXTENSION_XSI
+#include <_definitions/ino_t.h>
+#endif
+
+typedef struct _DIR DIR;
+
+struct dirent {
+#ifdef _POSIX_EXTENSION_XSI
+	ino_t d_ino;   /* File serial number. */
+#endif
+	char d_name[]; /* Filename string of entry. */
+};
 
 int            alphasort(const struct dirent **, const struct dirent **);
 int            closedir(DIR *);
@@ -18,8 +27,6 @@ void           rewinddir(DIR *);
 int            scandir(const char *, struct dirent ***, int (*)(const struct dirent *), int (*)(const struct dirent **, const struct dirent **));
 
 #ifdef _POSIX_EXTENSION_XSI
-#include <_definitions/ino_t.h>
-
 void seekdir(DIR *, long);
 long telldir(DIR *);
 #endif

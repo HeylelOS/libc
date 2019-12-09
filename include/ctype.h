@@ -3,6 +3,11 @@
 
 /* ctype.h - character types */
 
+#ifdef _POSIX_EXTENSION_CX
+/* As in <locale.h> */
+#include <_definitions/locale_t.h>
+#endif
+
 int isalnum(int);
 int isalpha(int);
 int isblank(int);
@@ -27,9 +32,6 @@ int toascii(int);
 #endif
 
 #ifdef _POSIX_EXTENSION_CX
-/* As in <locale.h> */
-#include <_definitions/locale_t.h>
-
 int isalnum_l(int, locale_t);
 int isalpha_l(int, locale_t);
 int isblank_l(int, locale_t);
@@ -44,7 +46,6 @@ int isupper_l(int, locale_t);
 int isxdigit_l(int, locale_t);
 int tolower_l(int, locale_t);
 int toupper_l(int, locale_t);
-
 #endif
 
 /* _CTYPE_H */
