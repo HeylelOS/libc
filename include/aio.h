@@ -26,15 +26,15 @@ struct aiocb {
 	int             aio_lio_opcode; /* Operation to be performed. */
 };
 
-#define AIO_ALLDONE
-#define AIO_CANCELED
-#define AIO_NOTCANCELED
+#define AIO_ALLDONE     0
+#define AIO_CANCELED    1
+#define AIO_NOTCANCELED 2
 
-#define LIO_NOP
-#define LIO_NOWAIT
-#define LIO_READ
-#define LIO_WAIT
-#define LIO_WRITE
+#define LIO_NOP    0
+#define LIO_NOWAIT 1
+#define LIO_READ   2
+#define LIO_WAIT   3
+#define LIO_WRITE  4
 
 int     aio_cancel(int, struct aiocb *);
 int     aio_error(const struct aiocb *);
