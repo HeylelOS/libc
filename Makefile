@@ -1,43 +1,38 @@
 CC=clang
-CFLAGS=-Wall -g -nostdinc -ffreestanding -nostdlib -fPIC -Iinclude
-AWK=awk
-
+CFLAGS=-target $(TARGET) -ffreestanding -nostdinc -nostdlib -Iinclude -Wall
+AS=clang
+AFLAGS=-target $(TARGET)
+KERNEL=linux
+TARGET=$(ARCH)-none-$(ABI)
 ARCH=x86_64
-SYSCALL_ABI=syscalls-abi/linux-v5.4-rc5
+ABI=elf
+
 BUILDDIR=build
 
-CRT0_SRC=arch/$(ARCH)/crt0/crt0.s
-SYSCALLS_SRC=arch/$(ARCH)/syscalls/syscalls.s
 LIBC_SRC=$(wildcard src/libc/*.c)
-HELLO_SRC=$(wildcard src/hello/*.c)
+CRT0_SRC=$(wildcard arch/$(TARGET)/crt0/*.s)
+SYSCALLS_SRC=$(wildcard arch/$(TARGET)/$(KERNEL)/*.s)
 
-CRT0=$(BUILDDIR)/obj/crt0.o
-SYSCALLS=$(BUILDDIR)/obj/syscalls.o
 LIBC=$(BUILDDIR)/lib/libc.so
-HELLO=$(BUILDDIR)/bin/hello
+CRT0=$(BUILDDIR)/lib/crt0.o
+SYSCALLS=$(BUILDDIR)/lib/syscalls.o
 
 .PHONY: all clean
 
-all: $(HELLO)
+all: $(LIBC) $(CRT0)
 
 clean:
-	rm -rf $(BUILDDIR) $(SYSCALLS_SRC)
+	rm -rf $(BUILDDIR)
 
 $(BUILDDIR):
-	mkdir -p $@/bin $@/lib $@/obj
-
-$(CRT0): $(CRT0_SRC) $(BUILDDIR)
-	$(CC) -fPIC -c -o $@ $<
-
-$(SYSCALLS_SRC): $(SYSCALL_ABI)
-	$(AWK) -f tools/syscalls.awk < $< > $@
-
-$(SYSCALLS): $(SYSCALLS_SRC) $(BUILDDIR)
-	$(CC) -fPIC -c -o $@ $<
+	mkdir -p $@/lib
 
 $(LIBC): $(LIBC_SRC) $(SYSCALLS) $(BUILDDIR)
-	$(CC) $(CFLAGS) -shared -o $@ $(LIBC_SRC) $(SYSCALLS)
+	$(CC) $(CFLAGS) -shared -fPIC -o $@ $(LIBC_SRC) $(SYSCALLS)
 
-$(HELLO): $(HELLO_SRC) $(CRT0) $(LIBC) $(BUILDDIR)
-	$(CC) $(CFLAGS) -o $@ $(HELLO_SRC) $(CRT0) $(LIBC)
+$(CRT0): $(CRT0_SRC) $(BUILDDIR)
+	$(AS) $(AFLAGS) -fPIC -c -o $@ $(CRT0_SRC)
+
+$(SYSCALLS): $(SYSCALLS_SRC) $(BUILDDIR)
+	$(AS) $(AFLAGS) -fPIC -c -o $@ $(SYSCALLS_SRC)
 
