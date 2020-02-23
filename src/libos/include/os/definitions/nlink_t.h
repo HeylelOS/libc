@@ -1,0 +1,7 @@
+#ifndef OS_DEFINITIONS_NLINK_T_H
+#define OS_DEFINITIONS_NLINK_T_H
+
+typedef __UINT32_TYPE__ nlink_t;
+
+/* OS_DEFINITIONS_NLINK_T_H */
+#endif

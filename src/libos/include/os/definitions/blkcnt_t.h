@@ -1,0 +1,7 @@
+#ifndef OS_DEFINITIONS_BLKCNT_T_H
+#define OS_DEFINITIONS_BLKCNT_T_H
+
+typedef __INT64_TYPE__ blkcnt_t;
+
+/* OS_DEFINITIONS_BLKCNT_T_H */
+#endif

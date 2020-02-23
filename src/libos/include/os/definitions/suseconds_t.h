@@ -1,0 +1,7 @@
+#ifndef OS_DEFINITIONS_SUSECONDS_T_H
+#define OS_DEFINITIONS_SUSECONDS_T_H
+
+typedef __INT32_TYPE__ suseconds_t;
+
+/* OS_DEFINITIONS_SUSECONDS_T_H */
+#endif

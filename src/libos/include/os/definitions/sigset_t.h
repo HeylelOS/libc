@@ -1,0 +1,7 @@
+#ifndef OS_DEFINITIONS_SIGSET_T_H
+#define OS_DEFINITIONS_SIGSET_T_H
+
+typedef __UINT64_TYPE__ sigset_t;
+
+/* OS_DEFINITIONS_SIGSET_T_H */
+#endif
