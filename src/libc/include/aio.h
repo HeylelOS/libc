@@ -4,17 +4,17 @@
 /* aio.h - asynchronous input and output */
 
 /* As in <sys/types.h> */
-#include <_definitions/off_t.h>
-#include <_definitions/pthread_attr_t.h>
-#include <_definitions/size_t.h>
-#include <_definitions/ssize_t.h>
+#include <os/definitions/off_t.h>
+#include <os/definitions/pthread_attr_t.h>
+#include <os/definitions/size_t.h>
+#include <os/definitions/ssize_t.h>
 
 /* As in <time.h> */
-#include <_definitions/timespec.h>
+#include <os/definitions/timespec.h>
 
 /* As in <signal.h> */
-#include <_definitions/sigevent.h>
-#include <_definitions/sigval.h>
+#include <os/definitions/sigevent.h>
+#include <os/definitions/sigval.h>
 
 struct aiocb {
 	int             aio_fildes;     /* File descriptor. */

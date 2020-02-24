@@ -1,2 +1,3 @@
-/build
-/arch/x86_64/syscalls/syscalls.s
+/bin
+/lib
+/Makefile

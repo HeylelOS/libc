@@ -5,7 +5,7 @@
 
 #ifdef _POSIX_EXTENSION_CX
 /* As in <locale.h> */
-#include <_definitions/locale_t.h>
+#include <os/definitions/locale_t.h>
 #endif
 
 int isalnum(int);

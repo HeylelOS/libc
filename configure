@@ -1,0 +1,103 @@
+#!/bin/sh
+
+[ -z "$_TARGET_DIRECTORY" ] && _TARGET_DIRECTORY='.'
+[ -z "$_SOURCE_DIRECTORY" ] && _SOURCE_DIRECTORY="`dirname $0`"
+
+while getopts ho:i:P: opt
+do
+	case $opt in
+	h) cat <<EOF
+\`configure' configures this package to adapt to many kinds of systems.
+
+Usage: ./configure [-h] [-o <target directory>] [-i <source directory>] [-P <profile>] [VAR=VALUE]...
+
+To assign environment variables (e.g., CC, CFLAGS...), specify them as
+VAR=VALUE.  See below for descriptions of some of the useful variables.
+
+Defaults for the options are specified in brackets.
+
+Configuration:
+  -h                      display this help and exit
+  -o <target directory>   overrides default choice for output directory [$_TARGET_DIRECTORY]
+  -i <source directory>   overrides default choice for input directory [$_SOURCE_DIRECTORY]
+  -P <profile>            select a profile, default none is set
+
+Some influential environment variables:
+  CFLAGS
+  CC
+
+Use these variables to override the choices made by \`configure' or to help
+it to find libraries and programs with nonstandard names/locations.
+
+Report bugs to the package provider.
+EOF
+		exit 2 ;;
+	o) _TARGET_DIRECTORY="$OPTARG" ;;
+	i) _SOURCE_DIRECTORY="$OPTARG" ;;
+	P) case "$OPTARG" in
+		'release') _PROFILE='release'
+			CFLAGS='-O -Wall'
+			;;
+		'debug') _PROFILE='debug'
+			CFLAGS='-g -Wall'
+			;;
+		*) printf 'Unknown profile: %s\n' "$OPTARG";;
+		esac ;;
+	?) printf 'Unknown option: %s\n' "$opt";;
+	esac
+done
+
+shift $((OPTIND - 1))
+[ ! -z "$*" ] && export -- "$@"
+
+if [ ! -d "$_TARGET_DIRECTORY" ]
+then
+	printf 'Output for targets is not a directory\n'
+	exit 1
+fi
+
+if [ ! -d "$_SOURCE_DIRECTORY" ]
+then
+	printf 'Input for dependencies is not a directory\n'
+	exit 1
+fi
+
+if [ -z "$_PROFILE" ]
+then printf 'Missing profile, no environment will be selected\n'
+else printf 'Profile '%s' selected\n' "$_PROFILE"
+fi
+
+mkdir -p "$_TARGET_DIRECTORY/bin"
+
+if [ -z "${CC}" ]
+then
+	for CC in clang gcc tcc cc ''
+	do which "${CC}" > /dev/null 2>&1 && break
+	done
+fi
+
+if [ ! -z "${CC}" ]
+then printf "Using CC '%s'\n" "${CC}"
+else
+	printf "Unable to find a suitable program for CC\n"
+	exit 1
+fi
+
+cat <<EOF > Makefile
+.PHONY: all clean
+
+_TARGETS=$_TARGET_DIRECTORY/bin/dyld-elf64 
+
+CFLAGS=${CFLAGS}
+CC=${CC}
+
+all: \$(_TARGETS)
+
+clean:
+	rm -f \$(_TARGETS)
+
+$_TARGET_DIRECTORY/bin/dyld-elf64: \$(wildcard $_SOURCE_DIRECTORY/src/dyld-elf64/*.c)
+	\$(CC) \$(CFLAGS) -o \$@ $^
+
+EOF
+

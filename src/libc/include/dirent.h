@@ -4,7 +4,7 @@
 /* dirent.h - format of directory entries */
 
 #ifdef _POSIX_EXTENSION_XSI
-#include <_definitions/ino_t.h>
+#include <os/definitions/ino_t.h>
 #endif
 
 typedef struct _DIR DIR;

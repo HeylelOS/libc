@@ -4,17 +4,17 @@
 /* fcntl.h - file control options */
 
 /* As in <stdio.h> */
-#include <_definitions/SEEK_SET.h>
-#include <_definitions/SEEK_CUR.h>
-#include <_definitions/SEEK_END.h>
+#include <os/definitions/SEEK_SET.h>
+#include <os/definitions/SEEK_CUR.h>
+#include <os/definitions/SEEK_END.h>
 
 /* As in <sys/stat.h> */
-#include <_definitions/S_IRWXA.h> /* Symbolic constants for file modes */
+#include <os/definitions/S_IRWXA.h> /* Symbolic constants for file modes */
 
 /* As in <sys/types.h> */
-#include <_definitions/mode_t.h>
-#include <_definitions/off_t.h>
-#include <_definitions/pid_t.h>
+#include <os/definitions/mode_t.h>
+#include <os/definitions/off_t.h>
+#include <os/definitions/pid_t.h>
 
 #define F_DUPFD
 #define F_DUPFD_CLOEXEC

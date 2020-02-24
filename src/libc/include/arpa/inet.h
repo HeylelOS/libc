@@ -4,15 +4,15 @@
 /* arpa/inet.h - definitions for internet operations */
 
 /* As in <netinet/in.h> */
-#include <_definitions/in_port_t.h>
-#include <_definitions/in_addr_t.h>
-#include <_definitions/in_addr.h>
-#include <_definitions/INET_ADDRSTRLEN.h>
-#include <_definitions/INET6_ADDRSTRLEN.h>
+#include <os/definitions/in_port_t.h>
+#include <os/definitions/in_addr_t.h>
+#include <os/definitions/in_addr.h>
+#include <os/definitions/INET_ADDRSTRLEN.h>
+#include <os/definitions/INET6_ADDRSTRLEN.h>
 
 /* As in <inttypes.h> */
-#include <_definitions/uint32_t.h>
-#include <_definitions/uint16_t.h>
+#include <os/definitions/uint32_t.h>
+#include <os/definitions/uint16_t.h>
 
 uint32_t htonl(uint32_t);
 uint16_t htons(uint16_t);
