@@ -97,7 +97,7 @@ clean:
 	rm -f \$(_TARGETS)
 
 $_TARGET_DIRECTORY/bin/dyld-elf64: \$(wildcard $_SOURCE_DIRECTORY/src/dyld-elf64/*.c)
-	\$(CC) \$(CFLAGS) -o \$@ $^
+	\$(CC) \$(CFLAGS) -Isrc/libos/include -o \$@ $^
 
 EOF
 
