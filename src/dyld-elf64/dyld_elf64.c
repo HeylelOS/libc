@@ -66,7 +66,7 @@ static dyld_elf64_error_t
 dyld_elf64_object_program_preview(struct dyld_elf64_object *object) {
 	const struct Elf64_Phdr *current = object->program_header_table.begin,
 		* const end = object->program_header_table.begin + object->program_header_table.count;
-	unsigned int loadable = 0, dynamic = 0, interp = 0, shlib = 0, phdr = 0, ignored = 0;
+	unsigned int loadable = 0, dynamic = 0, interp = 0, phdr = 0, ignored = 0;
 
 	while(current < end) {
 		switch(current->p_type) {
@@ -74,18 +74,18 @@ dyld_elf64_object_program_preview(struct dyld_elf64_object *object) {
 			loadable++;
 			break;
 		case PT_DYNAMIC:
-			dynamic++;
+			if(++dynamic > 1) {
+				return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_UNEXPECTED_DYNAMIC;
+			}
 			break;
 		case PT_INTERP:
 			/* should be before any loadable segment, see SysV ABI */
-			if(loadable > 0) {
-				return DYLD_ELF64_ERROR_OBJECT_INVALID_PROGRAM_HEADER_TABLE;
+			if(loadable > 0 | ++interp > 1) {
+				return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_UNEXPECTED_INTERP;
 			}
-			interp++;
 			break;
 		case PT_SHLIB:
-			shlib++;
-			break;
+			return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_UNEXPECTED_SHLIB;
 		case PT_PHDR:
 			if(object->file == 0) {
 				const struct Elf64_Ehdr * const elfheader = (const struct Elf64_Ehdr *)
@@ -95,18 +95,32 @@ dyld_elf64_object_program_preview(struct dyld_elf64_object *object) {
 				object->entry = elfheader->e_entry;
 				object->flags = elfheader->e_flags;
 			}
-			phdr++;
+			if(++phdr > 1) {
+				return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_UNEXPECTED_PHDR;
+			}
 			break;
 		default:
 			ignored++;
 			break;
 		}
 
+		const Elf64_Xword alignmask = current->p_align - 1;
+		if((current->p_align & alignmask) != 0) {
+			return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_INVALID_ALIGN;
+		}
+
+		if((current->p_offset & alignmask) != (current->p_vaddr & alignmask)) {
+			return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_INVALID_ALIGNMENT_REQUIREMENT;
+		}
+
 		current = (const struct Elf64_Phdr *)((Elf64_Addr)current + object->program_header_table.size);
 	}
 
-	return (dynamic <= 1 & interp <= 1 & shlib == 0 & phdr <= 1 & object->file != 0) != 0 ?
-		DYLD_ELF64_ERROR_NONE: DYLD_ELF64_ERROR_OBJECT_INVALID_PROGRAM_HEADER_TABLE;
+	if(object->file == 0) {
+		return DYLD_ELF64_ERROR_OBJECT_INVALID_PHDR_EXPECTED_PHDR;
+	}
+
+	return DYLD_ELF64_ERROR_NONE;
 }
 
 /***************************
@@ -137,10 +151,13 @@ dyld_elf64_image_objects_resolve(struct dyld_elf64_image *image) {
 			const struct Elf64_Phdr *current = object->program_header_table.begin,
 				* const end = object->program_header_table.begin + object->program_header_table.count;
 
+			//printf("File mapping: %.16lX\n", object->file);
+
 			while(current < end) {
 				switch(current->p_type) {
 				case PT_LOAD:
-					//printf("PT_LOAD: 0x%.8llX -> 0x%.8llX (0x%.8llX)\n", current->p_filesz, current->p_memsz, object->file + current->p_offset);
+					//printf("PT_LOAD:\n\tp_flags:\t0x%.8X\n\tp_offset:\t0x%.16llX\n\tp_vaddr:\t0x%.16lX\n\tp_paddr:\t0x%.16lX\n\tp_filesz:\t0x%.16llX\n\tp_memsz:\t0x%.16llX\n\tp_align:\t0x%.16llX\n",
+					//	current->p_flags, current->p_offset, current->p_vaddr, current->p_paddr, current->p_filesz, current->p_memsz, current->p_align);
 					break;
 				case PT_DYNAMIC:
 					//puts("PT_DYNAMIC");
