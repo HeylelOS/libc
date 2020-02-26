@@ -5,32 +5,42 @@
 #include <fcntl.h>
 #include <err.h>
 
-extern char **environ;
-
 int
-main(int argc, char **argv) {
+main(int argc, char *argv[]) {
+	struct dyld_elf64_image image;
 
 	while(getopt(argc, argv, "") != -1);
 
 	if(argc - optind > 0) {
-		const char * const program = argv[optind];
-		auxv_t auxvs[] = {
-			{ .a_type = AT_EXECFD, .a_un = { .a_val = open(program, O_RDONLY) } },
-			{ .a_type = AT_NULL }
-		};
-		dyld_elf64_entry_t entry;
+		// Command line version, ignore auxiliary vectors
+		const char * const path = argv[optind];
+		int execfd = open(path, O_RDONLY);
+		dyld_elf64_error_t error;
 
-		if(auxvs->a_un.a_val < 0) {
-			err(-1, "unable to open %s", program);
+		if(execfd < 0) {
+			err(-1, "unable to open %s", path);
 		}
 
-		if(dyld_elf64(&entry, argc, argv, environ, auxvs) != DYLD_ELF64_ERROR_NONE) {
-			errx(-1, "dynamic linker error, unable to load %s", program);
+		error = dyld_elf64_image_init_fd(&image, getpagesize(), execfd);
+		if(error != DYLD_ELF64_ERROR_NONE) {
+			errx(-1, "dynamic linker error, unable to load %s", path);
 		}
 
-		close(auxvs->a_un.a_val);
+		error = dyld_elf64_image_objects_resolve(&image);
+		if(error != DYLD_ELF64_ERROR_NONE) {
+			errx(-1, "dynamic linker error, unable to resolve %s", path);
+		}
 
-		return entry(argc, argv, environ);
+		error = dyld_elf64_image_objects_relocate(&image);
+		if(error != DYLD_ELF64_ERROR_NONE) {
+			errx(-1, "dynamic linker error, unable to relocate %s", path);
+		}
+
+		close(execfd);
+
+		dyld_elf64_image_control_transfer(&image);
+
+		errx(-1, "dynamic linker error, unable to transfer control to %s", path);
 	} else {
 		fprintf(stderr, "usage: %s program [arguments...]\n", *argv);
 		return -1;

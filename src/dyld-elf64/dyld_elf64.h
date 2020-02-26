@@ -1,26 +1,39 @@
 #ifndef DYLD_ELF64_DYLD_ELF64_H
 #define DYLD_ELF64_DYLD_ELF64_H
 
-#include <os/definitions/auxv_t.h>
+#include <sys/types.h>
 
 typedef enum {
 	DYLD_ELF64_ERROR_NONE,
-	DYLD_ELF64_ERROR_INIT_NOTELF,
-	DYLD_ELF64_ERROR_INIT_MISSING_AUXILIARY_VECTOR,
-	DYLD_ELF64_ERROR_FILE_INVALID_EXECFD,
-	DYLD_ELF64_ERROR_FILE_INVALID_IDENT,
-	DYLD_ELF64_ERROR_FILE_INVALID_MACHINE,
-	DYLD_ELF64_ERROR_FILE_INVALID_VERSION,
 
-	DYLD_ELF64_ERROR_UNIMPLEMENTED,
+	DYLD_ELF64_ERROR_OBJECT_INVALID_EXECFD,
+	DYLD_ELF64_ERROR_OBJECT_INVALID_IDENT,
+	DYLD_ELF64_ERROR_OBJECT_INVALID_MACHINE,
+	DYLD_ELF64_ERROR_OBJECT_INVALID_VERSION,
+	DYLD_ELF64_ERROR_OBJECT_INVALID_PROGRAM_HEADER_TABLE,
+
 } dyld_elf64_error_t;
 
-typedef int (*dyld_elf64_entry_t)(int, char*[], char*[]);
+struct dyld_elf64_image {
+	struct {
+		struct dyld_elf64_object *base;  /* table of dynamic shared objects */
+		size_t                    count; /* number of entries in base */
+		size_t                    size;  /* capacity of base in bytes */
+	} objects;
+	size_t pagesize;
+};
 
 dyld_elf64_error_t
-dyld_elf64(dyld_elf64_entry_t *entry,
-	long argc, char *argv[],
-	char *environ[], auxv_t auxv[]);
+dyld_elf64_image_init_fd(struct dyld_elf64_image *image, size_t pagesize, int execfd);
+
+dyld_elf64_error_t
+dyld_elf64_image_objects_resolve(struct dyld_elf64_image *image);
+
+dyld_elf64_error_t
+dyld_elf64_image_objects_relocate(struct dyld_elf64_image *image);
+
+void
+dyld_elf64_image_control_transfer(struct dyld_elf64_image *image);
 
 /* DYLD_ELF64_DYLD_ELF64_H */
 #endif

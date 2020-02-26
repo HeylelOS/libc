@@ -121,6 +121,52 @@ struct Elf64_Rela {
 	Elf64_Sxword r_addend;
 };
 
+/**************
+ * Elf64_Phdr *
+ **************/
+
+/* p_type */
+
+#define PT_NULL    0
+#define PT_LOAD    1
+#define PT_DYNAMIC 2
+#define PT_INTERP  3
+#define PT_NOTE    4
+#define PT_SHLIB   5
+#define PT_PHDR    6
+
+/* p_type, what's the true usage of those masks? */
+
+#define PT_LOOS    0x60000000
+#define PT_HIOS    0x6fffffff
+#define PT_LOPROC  0x70000000
+#define PT_HIPROC  0x7fffffff
+
+/* p_type, x86_64 specific */
+#define PT_GNU_EH_FRAME  0x6474e550
+#define PT_SUNW_EH_FRAME 0x6474e550
+#define PT_SUNW_UNWIND   0x6464e550
+
+/* p_type, GNU specific? TODO: lookup for documentation */
+#define PT_GNU_STACK 0x6474e551
+#define PT_GNU_RELRO 0x6474e552
+
+/* nb: lot of other types exist, might need
+ external documentation and references
+ to implement them */
+
+/* p_flags */
+
+#define PF_X 0x1
+#define PF_W 0x2
+#define PF_R 0x4
+
+/* p_flags, the following differ between elf and elf64,
+ elf64 are took, cause we're an elf64 dynamic linker */
+
+#define PF_MASKOS   0x00ff0000
+#define PF_MASKPROC 0xff000000
+
 struct Elf64_Phdr {
 	Elf64_Word  p_type;
 	Elf64_Word  p_flags;

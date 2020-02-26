@@ -1,183 +1,168 @@
 #include "dyld_elf64.h"
 #include "elf64.h"
 
-#include <unistd.h>
-#include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <strings.h>
 
-struct dyld_elf64_context {
-	unsigned long pagesize;
-	uid_t         uid;
-	uid_t         euid;
-	gid_t         gid;
-	gid_t         egid;
-};
-
-struct dyld_elf64_dso {
+struct dyld_elf64_object {
+	Elf64_Addr  file; /* Address of the file mapping, or zero if unknown. */
 	struct {
-		struct Elf64_Phdr *table;
-		Elf64_Word         count;
-		Elf64_Word         size;
-	} header;
-	Elf64_Addr         base;
-	Elf64_Addr         entry;
-	Elf64_Word         flags;
+		struct Elf64_Phdr *begin; /* Address of the program header table. */
+		Elf64_Word         count; /* Number of entries in the program header table. */
+		Elf64_Word         size;  /* Size of a program header entry. */
+	} program_header_table;
+	Elf64_Addr base;  /* Base address, zero if unknown */
+	Elf64_Addr entry; /* Program entry, zero if unknown */
+	Elf64_Word flags; /* Header flags */
 };
 
-#define PN_CLAMP(n) ((n)>PN_XNUM?PN_XNUM:(n))
+/****************************
+ * struct dyld_elf64_object *
+ ****************************/
 
 static const unsigned char elf64_expected_ident[] = {
 	ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3, ELFCLASS64, ELFDATA2LSB, EV_CURRENT
 };
 
 static dyld_elf64_error_t
-dyld_elf64_dso_init(struct dyld_elf64_dso *program, int fd) {
+dyld_elf64_object_init(struct dyld_elf64_object *object, int execfd) {
 	const struct Elf64_Ehdr *elfheader;
 	struct stat st;
 
-	if(fstat(fd, &st) != 0
-		|| (elfheader = mmap(0, st.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0)) == MAP_FAILED) {
-		return DYLD_ELF64_ERROR_FILE_INVALID_EXECFD;
+	if(fstat(execfd, &st) != 0
+		|| (elfheader = mmap(0, st.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, execfd, 0)) == MAP_FAILED) {
+		return DYLD_ELF64_ERROR_OBJECT_INVALID_EXECFD;
 	}
 
 	if(bcmp(elfheader->e_ident, elf64_expected_ident, sizeof(elf64_expected_ident)) != 0) {
-		return DYLD_ELF64_ERROR_FILE_INVALID_IDENT;
+		return DYLD_ELF64_ERROR_OBJECT_INVALID_IDENT;
 	}
 
 	/* TODO: Check supported e_target */
 
 	if(elfheader->e_machine != EM_X86_64) {
-		return DYLD_ELF64_ERROR_FILE_INVALID_MACHINE;
+		return DYLD_ELF64_ERROR_OBJECT_INVALID_MACHINE;
 	}
 
 	if(elfheader->e_version != EV_CURRENT) {
-		return DYLD_ELF64_ERROR_FILE_INVALID_VERSION;
+		return DYLD_ELF64_ERROR_OBJECT_INVALID_VERSION;
 	}
 
-	program->entry        = elfheader->e_entry;
-	program->header.table = (struct Elf64_Phdr *)((Elf64_Addr)elfheader + elfheader->e_phoff);
-	program->flags        = elfheader->e_flags;
-	program->header.size  = elfheader->e_phentsize;
-	program->header.count = PN_CLAMP(elfheader->e_phnum);
-	program->base         = 0;
+	/* TODO: Add check for program header entry size? (fixed, greater or equals?) */
+
+	object->file                       = (Elf64_Addr)elfheader;
+	object->entry                      = elfheader->e_entry;
+	object->program_header_table.begin = (struct Elf64_Phdr *)((Elf64_Addr)elfheader + elfheader->e_phoff);
+	object->flags                      = elfheader->e_flags;
+	object->program_header_table.size  = elfheader->e_phentsize;
+	object->program_header_table.count = elfheader->e_phnum > PN_XNUM ? PN_XNUM : elfheader->e_phnum;
+	object->base                       = 0;
 
 	return DYLD_ELF64_ERROR_NONE;
 }
 
 static dyld_elf64_error_t
-dyld_elf64_dso_link(const struct dyld_elf64_dso *program,
-	const struct dyld_elf64_context *context) {
+dyld_elf64_object_program_preview(struct dyld_elf64_object *object) {
+	const struct Elf64_Phdr *current = object->program_header_table.begin,
+		* const end = object->program_header_table.begin + object->program_header_table.count;
+	unsigned int loadable = 0, dynamic = 0, interp = 0, shlib = 0, phdr = 0, ignored = 0;
 
-	/* TODO */
-
-	return DYLD_ELF64_ERROR_UNIMPLEMENTED;
-}
-
-#define AUXV_MAPED_PRESET (1 << AT_PHDR | 1 << AT_PHENT \
-	| 1 << AT_PHNUM | 1 << AT_PHDR | 1 << AT_FLAGS)
-
-static dyld_elf64_error_t
-dyld_elf64_init(struct dyld_elf64_dso *program,
-	struct dyld_elf64_context *context,
-	auxv_t const *auxv) {
-	int initialized = 0;
-	int execfd;
-
-	bzero(program, sizeof(*program));
-	bzero(context, sizeof(*context));
-
-	while(auxv->a_type != AT_NULL) {
-		switch(auxv->a_type) {
-		case AT_EXECFD:
-			execfd = auxv->a_un.a_val;
+	while(current < end) {
+		switch(current->p_type) {
+		case PT_LOAD:
+			loadable++;
 			break;
-		case AT_PHDR:
-			program->header.table = auxv->a_un.a_ptr;
+		case PT_DYNAMIC:
+			dynamic++;
 			break;
-		case AT_PHENT:
-			program->header.size = auxv->a_un.a_val;
-			break;
-		case AT_PHNUM:
-			program->header.count = PN_CLAMP(auxv->a_un.a_val);
-			break;
-		case AT_PAGESZ:
-			context->pagesize = auxv->a_un.a_val;
-			break;
-		case AT_BASE:
-			program->base = (Elf64_Addr)auxv->a_un.a_ptr;
-			break;
-		case AT_FLAGS:
-			program->flags = auxv->a_un.a_val;
-			break;
-		case AT_ENTRY:
-			program->entry = (Elf64_Addr)auxv->a_un.a_ptr;
-			break;
-		case AT_NOTELF:
-			if(auxv->a_un.a_val != 0) {
-				return DYLD_ELF64_ERROR_INIT_NOTELF;
+		case PT_INTERP:
+			/* should be before any loadable segment, see SysV ABI */
+			if(loadable > 0) {
+				return DYLD_ELF64_ERROR_OBJECT_INVALID_PROGRAM_HEADER_TABLE;
 			}
+			interp++;
 			break;
-		case AT_UID:
-			context->uid = auxv->a_un.a_val;
+		case PT_SHLIB:
+			shlib++;
 			break;
-		case AT_EUID:
-			context->euid = auxv->a_un.a_val;
+		case PT_PHDR:
+			if(object->file == 0) {
+				const struct Elf64_Ehdr * const elfheader = (const struct Elf64_Ehdr *)
+					((Elf64_Addr)object->program_header_table.begin - current->p_offset);
+
+				object->file  = (Elf64_Addr)elfheader;
+				object->entry = elfheader->e_entry;
+				object->flags = elfheader->e_flags;
+			}
+			phdr++;
 			break;
-		case AT_GID:
-			context->gid = auxv->a_un.a_val;
-			break;
-		case AT_EGID:
-			context->egid = auxv->a_un.a_val;
+		default:
+			ignored++;
 			break;
 		}
 
-		initialized |= 1 << auxv->a_type;
-		auxv++;
+		current = (const struct Elf64_Phdr *)((Elf64_Addr)current + object->program_header_table.size);
 	}
 
-	if((initialized & 1 << AT_PAGESZ) == 0) {
-		context->pagesize = getpagesize();
-	}
+	return (dynamic <= 1 & interp <= 1 & shlib == 0 & phdr <= 1 & object->file != 0) != 0 ?
+		DYLD_ELF64_ERROR_NONE: DYLD_ELF64_ERROR_OBJECT_INVALID_PROGRAM_HEADER_TABLE;
+}
 
-	if((initialized & 1 << AT_UID) == 0) {
-		context->uid = getuid();
-	}
+/***************************
+ * struct dyld_elf64_image *
+ ***************************/
 
-	if((initialized & 1 << AT_EUID) == 0) {
-		context->euid = geteuid();
-	}
+dyld_elf64_error_t
+dyld_elf64_image_init_fd(struct dyld_elf64_image *image, size_t pagesize, int execfd) {
+	image->objects.base  = mmap(0, pagesize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+	image->objects.count = 1;
+	image->objects.size  = pagesize;
 
-	if((initialized & 1 << AT_GID) == 0) {
-		context->gid = getgid();
-	}
+	image->pagesize = pagesize;
 
-	if((initialized & 1 << AT_EGID) == 0) {
-		context->egid = getegid();
-	}
-
-	if((initialized & 1 << AT_EXECFD) != 0) {
-		return dyld_elf64_dso_init(program, execfd);
-	} else if((initialized & AUXV_MAPED_PRESET) != AUXV_MAPED_PRESET) {
-		return DYLD_ELF64_ERROR_INIT_MISSING_AUXILIARY_VECTOR;
-	} else {
-		return DYLD_ELF64_ERROR_NONE;
-	}
+	return dyld_elf64_object_init(image->objects.base, execfd);
 }
 
 dyld_elf64_error_t
-dyld_elf64(dyld_elf64_entry_t *entry,
-	long argc, char *argv[],
-	char *environ[], auxv_t auxv[]) {
-	struct dyld_elf64_context context;
-	struct dyld_elf64_dso program;
+dyld_elf64_image_objects_resolve(struct dyld_elf64_image *image) {
 	dyld_elf64_error_t error;
 
-	if((error = dyld_elf64_init(&program, &context, auxv)) == DYLD_ELF64_ERROR_NONE
-		&& (error = dyld_elf64_dso_link(&program, &context)) == DYLD_ELF64_ERROR_NONE) {
-		*entry = (dyld_elf64_entry_t)program.entry;
+	/* The indexed for-loop is important, because image->objects will change if objects are added */
+	for(size_t i = 0; i < image->objects.count; i++) {
+		struct dyld_elf64_object *object = image->objects.base + i;
+		error = dyld_elf64_object_program_preview(object);
+
+		if(error == DYLD_ELF64_ERROR_NONE) {
+			const struct Elf64_Phdr *current = object->program_header_table.begin,
+				* const end = object->program_header_table.begin + object->program_header_table.count;
+
+			while(current < end) {
+				switch(current->p_type) {
+				case PT_LOAD:
+					//printf("PT_LOAD: 0x%.8llX -> 0x%.8llX (0x%.8llX)\n", current->p_filesz, current->p_memsz, object->file + current->p_offset);
+					break;
+				case PT_DYNAMIC:
+					//puts("PT_DYNAMIC");
+					break;
+				}
+	
+				current = (const struct Elf64_Phdr *)((Elf64_Addr)current + object->program_header_table.size);
+			}
+		} else {
+			break;
+		}
 	}
 
 	return error;
+}
+
+dyld_elf64_error_t
+dyld_elf64_image_objects_relocate(struct dyld_elf64_image *image) {
+	return DYLD_ELF64_ERROR_NONE;
+}
+
+void
+dyld_elf64_image_control_transfer(struct dyld_elf64_image *image) {
 }
 
